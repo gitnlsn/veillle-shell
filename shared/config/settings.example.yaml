@@ -1,0 +1,146 @@
+# NLSN PCAP Monitor Configuration
+
+# System Settings
+system:
+  log_level: "info"  # debug, info, warning, error
+  data_dir: "/var/lib/nlsn-monitor"
+  log_dir: "/var/log/nlsn-monitor"
+
+# Packet Capture Settings
+capture:
+  interface: "en0"  # Network interface to monitor (auto-detect if empty)
+  snaplen: 65535    # Maximum packet capture length
+  promiscuous: true # Enable promiscuous mode
+  buffer_size: 10485760  # 10MB buffer
+
+# Detection Settings
+detection:
+  # Passive detection thresholds
+  dns:
+    enabled: true
+    suspicion_threshold: 70  # 0-100 scale
+    verify_dnssec: true
+    check_ttl_anomalies: true
+
+  ssl:
+    enabled: true
+    suspicion_threshold: 80
+    detect_stripping: true
+    detect_weak_crypto: true
+    min_tls_version: "1.2"  # Minimum acceptable TLS version
+
+  arp:
+    enabled: true
+    suspicion_threshold: 90
+    monitor_table_changes: true
+
+# Verification Settings
+verification:
+  enabled: true
+  container_endpoint: "http://verification:8000"
+
+  # Number of paths to use for verification (max 40)
+  num_paths: 10
+
+  # Verification timeout in seconds
+  timeout: 15
+
+  # Trigger verification when suspicion score exceeds
+  trigger_threshold: 70
+
+  # Paths selection strategy: random, round-robin, all
+  selection_strategy: "random"
+
+# Deception Settings
+deception:
+  enabled: true
+
+  # Automated deception when attack detected
+  auto_deception: true
+
+  # Behavior profiles: naive_user, cautious_user, technical_user
+  default_behavior: "naive_user"
+
+  # Human behavior simulation
+  timing:
+    typing_speed_wpm: [40, 60]  # Range
+    reading_time_sec: [5, 15]
+    page_load_wait_sec: [0.8, 2.5]
+
+  # Fake credential generation
+  credentials:
+    embed_honeytokens: true
+    realistic_passwords: true
+
+  # Controlled response server
+  response_server: "http://deception-server:8080"
+
+# Honeypot Settings
+honeypot:
+  enabled: true
+  container_endpoint: "honeypot:0"
+
+  # Services to expose
+  services:
+    ssh:
+      enabled: true
+      port: 22
+      tarpit: true  # Slow responses
+      delay_sec: [2, 10]
+
+    http:
+      enabled: true
+      port: 80
+
+    https:
+      enabled: true
+      port: 443
+
+    mysql:
+      enabled: true
+      port: 3306
+
+  # Logging
+  log_all_actions: true
+  session_timeout_min: 30
+
+# Intelligence Gathering
+intelligence:
+  enabled: true
+  database: "postgresql://user:pass@postgres:5432/threats"
+
+  # Silent logging (no alerts to user)
+  silent_mode: true
+
+  # Honeytoken tracking
+  honeytokens:
+    enabled: true
+    alert_on_use: true
+    track_propagation: true
+
+# API Settings
+api:
+  host: "0.0.0.0"
+  port: 8888
+  cors_enabled: false
+
+# Redis Event Bus
+redis:
+  host: "redis"
+  port: 6379
+  db: 0
+
+# Database
+database:
+  type: "postgresql"  # postgresql or sqlite
+  host: "postgres"
+  port: 5432
+  database: "nlsn_monitor"
+  username: "nlsn"
+  password: "CHANGE_ME"
+
+# Alerting (future)
+alerts:
+  enabled: false
+  email: false
+  webhook: false

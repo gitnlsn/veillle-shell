@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  # Verification Container: Multi-path verification via VPNs/Tor/Proxies
+  verification:
+    build:
+      context: ./verification-container
+      dockerfile: Dockerfile
+    container_name: nlsn-verification
+    hostname: verification
+    privileged: true  # Required for network namespaces and VPN
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./verification-container/vpn-configs:/etc/openvpn:ro
+      - verification-logs:/var/log
+    networks:
+      - monitor-net
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Honeypot Container: Exposed decoy services
+  honeypot:
+    build:
+      context: ./honeypot-container
+      dockerfile: Dockerfile
+    container_name: nlsn-honeypot
+    hostname: production-web-01  # Looks like a real server
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    volumes:
+      - honeypot-logs:/var/log
+      - honeypot-data:/data:ro
+    networks:
+      - honeypot-net
+    ports:
+      # Expose honeypot to network
+      - "22:2222"    # SSH
+      - "80:80"      # HTTP
+      - "443:443"    # HTTPS
+      - "3306:3306"  # MySQL
+      - "5432:5432"  # PostgreSQL
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+      - HONEYPOT_MODE=tarpit
+
+  # Core Monitor: Go packet capture and parsing
+  monitor-go:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: nlsn-monitor-go
+    hostname: monitor
+    network_mode: "host"  # Required for packet capture
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./shared/config:/etc/nlsn-monitor:ro
+      - monitor-logs:/var/log
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CONFIG_FILE=/etc/nlsn-monitor/settings.yaml
+    depends_on:
+      - redis
+
+  # Engine: Python orchestration and deception
+  engine-python:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    container_name: nlsn-engine
+    hostname: engine
+    volumes:
+      - ./shared/config:/etc/nlsn-monitor:ro
+      - ./engine:/app
+      - engine-logs:/var/log
+    networks:
+      - monitor-net
+      - honeypot-net
+    ports:
+      - "8888:8888"  # API port
+    restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - VERIFICATION_ENDPOINT=http://verification:8000
+      - DATABASE_URL=postgresql://nlsn:nlsn_password@postgres:5432/nlsn_monitor
+      - CONFIG_FILE=/etc/nlsn-monitor/settings.yaml
+    depends_on:
+      - redis
+      - postgres
+      - verification
+
+  # Redis: Event bus
+  redis:
+    image: redis:7-alpine
+    container_name: nlsn-redis
+    hostname: redis
+    networks:
+      - monitor-net
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # PostgreSQL: Threat intelligence database
+  postgres:
+    image: postgres:15-alpine
+    container_name: nlsn-postgres
+    hostname: postgres
+    networks:
+      - monitor-net
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=nlsn_monitor
+      - POSTGRES_USER=nlsn
+      - POSTGRES_PASSWORD=nlsn_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nlsn"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  monitor-net:
+    driver: bridge
+    internal: true  # Isolated from internet
+
+  honeypot-net:
+    driver: bridge
+    internal: false  # Exposed to internet
+
+volumes:
+  verification-logs:
+  honeypot-logs:
+  honeypot-data:
+  monitor-logs:
+  engine-logs:
+  redis-data:
+  postgres-data:
