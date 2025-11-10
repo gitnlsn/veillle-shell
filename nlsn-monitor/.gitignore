@@ -1,0 +1,42 @@
+# Binaries
+/nlsn-monitor
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*.test
+*.out
+/test/testdata/*.db
+/test/testdata/*.pcap
+
+# Coverage
+coverage.out
+coverage.html
+
+# Benchmark/profiling artifacts
+/benchmarks/*.prof
+/benchmarks/*.pprof
+/benchmarks/*.txt
+
+# Go
+go.work
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data
+*.db
+*.log
+/data/
+
+# Config (don't commit credentials)
+/configs/config.yaml
+!configs/config.example.yaml
+
+# macOS
+.DS_Store

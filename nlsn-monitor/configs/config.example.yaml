@@ -1,0 +1,31 @@
+# NLSN PCAP Monitor Configuration
+# Copy to ~/.config/nlsn-pcap/config.yaml and customize
+
+version: "2.0"
+
+# Packet capture settings
+capture:
+  interface: "auto"              # Network interface (auto-detect or specify)
+  snaplen: 65535                 # Bytes to capture per packet
+  promisc: true                  # Promiscuous mode
+  buffer_size: 10485760          # 10MB packet buffer
+  filter: "port 53"              # BPF filter (DNS only for Phase 1)
+
+# Detection settings
+detection:
+  enabled: true
+  patterns_file: "patterns.yaml" # Detection pattern definitions
+  min_confidence: 50             # Minimum score (0-100) to trigger alert
+
+# Storage settings
+storage:
+  type: "sqlite"                 # Database type (sqlite)
+  path: "~/.local/share/nlsn-pcap/nlsn.db"  # Database path
+  retention_days: 30             # Auto-delete data older than N days
+
+# Logging settings
+logging:
+  level: "info"                  # Log level (debug|info|warn|error)
+  file: "~/.local/share/nlsn-pcap/logs/nlsn.log"  # Log file path
+  max_size_mb: 100               # Max log file size before rotation
+  max_backups: 5                 # Number of old log files to keep
